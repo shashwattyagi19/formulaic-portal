@@ -1,0 +1,24 @@
+{
+  "name": "formulaic-portal",
+  "version": "1.0.0",
+  "description": "Field & branch operations portal for valuation companies — live engineer tracking, attendance and branch expense management. Vanilla JS + Supabase.",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve -l 5173 .",
+    "dev": "python3 -m http.server 5173",
+    "test": "node smoke-test.mjs"
+  },
+  "keywords": [
+    "valuation",
+    "portal",
+    "supabase",
+    "leaflet",
+    "tracking",
+    "attendance",
+    "expenses"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "puppeteer-core": "^22.15.0"
+  }
+}
