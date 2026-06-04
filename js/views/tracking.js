@@ -44,9 +44,74 @@ export async function renderTracking(profile) {
     </div>
   `);
 
-  // Defer map init until element is in the DOM.
-  queueMicrotask(() => initMap(root, { profile, engineers, branches, visits }));
+  // Defer map init until element is in the DOM, ensuring Leaflet is available.
+  queueMicrotask(async () => {
+    const ok = await ensureLeaflet();
+    if (!ok) {
+      const mapEl = root.querySelector('#map');
+      if (mapEl) {
+        mapEl.style.display = 'grid';
+        mapEl.style.placeContent = 'center';
+        mapEl.style.background = 'var(--surface-2)';
+        mapEl.innerHTML = `<div class="empty" style="max-width:340px">${icon('map', 34)}
+          <p><b>Map library couldn't load.</b><br>The Leaflet map needs internet access (it may be blocked by your network or an ad-blocker). The live field list on the left still works.</p>
+          <button class="btn btn-ghost mt-2" onclick="location.reload()">Retry</button></div>`;
+      }
+      renderFallbackList(root, { profile, engineers, visits });
+      return;
+    }
+    try {
+      initMap(root, { profile, engineers, branches, visits });
+    } catch (e) {
+      console.error('Map init failed:', e);
+      renderFallbackList(root, { profile, engineers, visits });
+    }
+  });
   return root;
+}
+
+/** Ensure the Leaflet global (L) is present; lazily load from a fallback CDN. */
+function ensureLeaflet() {
+  if (typeof window.L !== 'undefined') return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(css);
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
+    s.onload = () => resolve(typeof window.L !== 'undefined');
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+    setTimeout(() => resolve(typeof window.L !== 'undefined'), 6000);
+  });
+}
+
+/** When the map can't render, still show a live-updating engineer list. */
+function renderFallbackList(root, { profile, engineers, visits }) {
+  const listEl = root.querySelector('#eng-list');
+  const paint = (positions) => {
+    listEl.innerHTML = engineers.length ? '' : '<div class="empty"><p>No field engineers in your scope.</p></div>';
+    engineers.forEach((eng) => {
+      const pos = positions[eng.id];
+      const visit = visitFor(visits, eng.id);
+      const online = pos && (Date.now() - new Date(pos.updated_at).getTime() < 120000);
+      listEl.appendChild(el(`
+        <div class="eng-item">
+          <div class="avatar ${online ? 'pulse-dot' : ''}" style="background:${colorFor(eng.full_name)}">${initials(eng.full_name)}</div>
+          <div class="info"><b>${esc(eng.full_name)}</b>
+            <small>${visit ? esc(visit.client_name) : 'Available'}${pos ? ' · ' + pos.lat.toFixed(4) + ', ' + pos.lng.toFixed(4) : ''}</small></div>
+          <div style="text-align:right"><div class="badge ${online ? 'green' : 'gray'}" style="font-size:10px">${online ? Math.round(pos.speed || 0) + ' km/h' : 'offline'}</div>
+            <div class="faint" style="font-size:10.5px;margin-top:3px">${pos ? timeAgo(pos.updated_at) : '—'}</div></div>
+        </div>`));
+    });
+  };
+  Data.getLivePositions().then(paint);
+  const unsub = Data.subscribeLive(paint);
+  const observer = new MutationObserver(() => {
+    if (!document.body.contains(root)) { unsub(); observer.disconnect(); }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 function visitFor(visits, engId) {
@@ -79,9 +144,20 @@ function initMap(root, ctx) {
   const map = L.map(root.querySelector('#map'), { zoomControl: true, attributionControl: true })
     .setView([center?.lat || 19.07, center?.lng || 72.87], 12);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  // Primary tiles from CARTO; fall back to OpenStreetMap if they fail to load.
+  const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19, subdomains: 'abcd',
-  }).addTo(map);
+  });
+  let switched = false;
+  carto.on('tileerror', () => {
+    if (switched) return;
+    switched = true;
+    map.removeLayer(carto);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 19,
+    }).addTo(map);
+  });
+  carto.addTo(map);
 
   // Branch office markers.
   branches.forEach((b) => {

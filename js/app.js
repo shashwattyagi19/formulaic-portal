@@ -79,7 +79,25 @@ window.addEventListener('hashchange', () => {
   if (profile) mountView(parseHash());
 });
 
+function showFileProtocolHelp() {
+  app.innerHTML = `
+    <div class="auth-wrap" style="grid-template-columns:1fr">
+      <div class="auth-panel">
+        <div class="auth-card" style="max-width:540px">
+          <h2>Serve this over http://</h2>
+          <p class="sub">The portal uses JavaScript modules, which browsers block when a page is opened directly from disk (a <code>file://</code> URL).</p>
+          <p class="text-sm muted">Start a quick local server from the project folder, then reload:</p>
+          <pre style="background:var(--surface-3);padding:14px;border-radius:10px;overflow:auto;font-size:13px">python3 -m http.server 5173
+# or
+npx serve -l 5173 .</pre>
+          <p class="text-sm muted mt-2">Then open <b>http://localhost:5173</b></p>
+        </div>
+      </div>
+    </div>`;
+}
+
 (async function boot() {
+  if (location.protocol === 'file:') { showFileProtocolHelp(); return; }
   try {
     profile = await Auth.restore();
   } catch (e) {
