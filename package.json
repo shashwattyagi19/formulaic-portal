@@ -1,0 +1,16 @@
+{
+  "name": "formulaic-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Formulaic Portal — field operations demo",
+  "scripts": {
+    "start": "serve . -l 5173",
+    "dev": "serve . -l 5173",
+    "smoke": "node scripts/smoke.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^22.15.0",
+    "serve": "^14.2.4"
+  }
+}
