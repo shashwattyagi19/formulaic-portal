@@ -1,0 +1,13 @@
+{
+  "files.exclude": {
+    "**/node_modules": true
+  },
+  "search.exclude": {
+    "**/node_modules": true
+  },
+  "editor.formatOnSave": true,
+  "editor.tabSize": 2,
+  "html.format.wrapLineLength": 100,
+  "javascript.preferences.quoteStyle": "single",
+  "liveServer.settings.port": 5173
+}
