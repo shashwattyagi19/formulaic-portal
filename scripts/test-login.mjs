@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { POST, GET, authenticate } from '../api/auth/login.js';
+import handler from '../api/auth/login.js';
 
 function post(body, { raw } = {}) {
   return POST(new Request('http://localhost/api/auth/login', {
@@ -154,6 +155,49 @@ test('authenticate helper matches the demo MD without going through HTTP', async
   const result = await authenticate('imran@formulaic.in', 'demo1234');
   assert.equal(result.ok, true);
   assert.equal(result.profile.role, 'site_engineer');
+});
+
+import { Readable } from 'node:stream';
+
+function nodeReq(method, body) {
+  const req = Readable.from([Buffer.from(body ?? '')]);
+  req.method = method;
+  req.headers = { 'content-type': 'application/json' };
+  return req;
+}
+
+function nodeRes() {
+  return {
+    statusCode: 0,
+    headers: {},
+    body: '',
+    setHeader(k, v) { this.headers[k] = v; },
+    end(s) { this.body = String(s ?? ''); },
+  };
+}
+
+test('default Node handler signs in a demo user', async () => {
+  const req = await nodeReq('POST', JSON.stringify({ email: 'md@formulaic.in', password: 'demo1234' }));
+  const res = nodeRes();
+  await handler(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(JSON.parse(res.body).profile.role, 'managing_director');
+});
+
+test('default Node handler uses the same 500 catch', async () => {
+  const logged = [];
+  const orig = console.error;
+  console.error = (...args) => logged.push(args);
+  try {
+    const req = await nodeReq('POST', '{not-json');
+    const res = nodeRes();
+    await handler(req, res);
+    assert.equal(res.statusCode, 500);
+    assert.deepEqual(JSON.parse(res.body), { error: 'Internal server error' });
+    assert.equal(logged[0][0], 'LOGIN ERROR:');
+  } finally {
+    console.error = orig;
+  }
 });
 
 test('handler serves over HTTP as POST /api/auth/login', async () => {

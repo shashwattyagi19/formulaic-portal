@@ -129,3 +129,40 @@ export async function POST(request) {
 export function GET() {
   return Response.json({ error: 'Method not allowed' }, { status: 405 });
 }
+
+/**
+ * Classic Vercel Node handler (`api/*.js` without Next.js). Same contract as
+ * POST / GET above, including the LOGIN ERROR 500 catch.
+ */
+export default async function handler(req, res) {
+  try {
+    if (req.method === 'GET') {
+      return send(res, GET());
+    }
+    if (req.method !== 'POST') {
+      res.statusCode = 405;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const request = new Request('http://local/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': req.headers['content-type'] || 'application/json' },
+      body: Buffer.concat(chunks),
+    });
+    return send(res, await POST(request));
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+}
+
+async function send(res, out) {
+  res.statusCode = out.status;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(await out.text());
+}
