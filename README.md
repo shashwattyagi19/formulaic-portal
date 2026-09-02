@@ -28,6 +28,8 @@ Built with plain **HTML, CSS and JavaScript** (no build step) and backed by
 - **Employees** — searchable team directory with roles and branches.
 - **Admin login for the Managing Director** — company-wide dashboards covering
   spend, pipeline value, attendance and field-staff status across all branches.
+- **Login API** — `POST /api/auth/login` signs in against demo accounts or
+  Supabase; unexpected failures log `LOGIN ERROR:` and return a generic 500.
 - **Role-based access** — navigation and data are scoped to each user's role.
 
 ## Screenshots
@@ -80,7 +82,7 @@ Open **Live Field Map** as the MD or a Branch Head to watch engineers move.
 Checks:
 
 ```bash
-npm test              # replay engine unit tests (no browser needed)
+npm test              # replay engine + login API unit tests (no browser needed)
 npm run smoke         # headless sign-in check (requires Chrome or Edge)
 npm run smoke:replay  # headless CSV replay check (requires Chrome or Edge)
 ```
@@ -95,9 +97,16 @@ npm run screenshots
 
 ## Login API
 
-`POST /api/auth/login` is a Vercel/Next-style route handler at
-`api/auth/login.js`. The browser calls it when that path is mounted
-(`vercel dev` or a Vercel deploy); otherwise sign-in stays in the client.
+Sign-in is a single JSON endpoint: **`POST /api/auth/login`**. The handler is
+`api/auth/login.js` — a Vercel / Next-style route with named `POST` / `GET`
+exports. It is the server counterpart of `Auth.signIn` in `js/data.js`.
+
+There is no Express/Fastify app behind it. On Vercel the file is mounted at
+that path automatically. Locally, `npm start` is a static file server, so the
+browser falls back to in-client demo (or direct Supabase) auth unless you run
+`vercel dev`.
+
+### Request
 
 ```http
 POST /api/auth/login
@@ -106,18 +115,134 @@ Content-Type: application/json
 { "email": "md@formulaic.in", "password": "demo1234" }
 ```
 
+| Field | Required | Notes |
+|-------|----------|--------|
+| `email` | yes | Trimmed; compared case-insensitively in demo mode |
+| `password` | yes | Plain text over HTTPS; never logged |
+
+`GET /api/auth/login` returns **405** `{ "error": "Method not allowed" }`.
+
+### Success (200)
+
 ```json
-{ "profile": { "id": "u-md", "role": "managing_director", "…" }, "session": null }
+{
+  "profile": {
+    "id": "u-md",
+    "full_name": "Aarav Mehta",
+    "email": "md@formulaic.in",
+    "role": "managing_director",
+    "branch_id": null,
+    "phone": "+91 98200 11000",
+    "is_active": true
+  },
+  "session": null
+}
 ```
 
-Unexpected failures are logged as `LOGIN ERROR:` and return HTTP 500
-`{ "error": "Internal server error" }` — the cause is never sent to the client.
-Wrong credentials are 401; missing fields are 400.
+`session` is `null` in demo mode. After a live Supabase sign-in it is:
 
-When `SUPABASE_URL` and `SUPABASE_ANON_KEY` are set on the function, the
-handler exchanges them with Supabase Auth and returns the matching `profiles`
-row plus the session tokens. Without those env vars it authenticates the same
-demo accounts as the in-browser fallback.
+```json
+{
+  "access_token": "…",
+  "refresh_token": "…",
+  "expires_in": 3600,
+  "token_type": "bearer"
+}
+```
+
+The profile is a public subset of `public.profiles` — no password or auth
+metadata. If Supabase Auth succeeds but the profile row is missing (the
+`handle_new_user` trigger has not run yet), the handler synthesizes one from
+the JWT (`role` defaults to `operator`).
+
+### Errors
+
+| Status | When | Body |
+|--------|------|------|
+| **400** | Missing/blank `email` or `password` | `{ "error": "Email and password are required." }` |
+| **401** | Unknown email (demo) | `{ "error": "No account found for that email." }` |
+| **401** | Wrong password (demo) | `{ "error": "Incorrect password. (Demo password: demo1234)" }` |
+| **401** | Supabase rejected the credentials | `{ "error": "<supabase message>" }` |
+| **405** | `GET` or any non-POST | `{ "error": "Method not allowed" }` |
+| **500** | Thrown exception, invalid JSON, network failure talking to Supabase | `{ "error": "Internal server error" }` |
+
+**500s never leak the cause.** The `catch` logs the real exception and returns
+a generic payload:
+
+```js
+} catch (error) {
+  console.error("LOGIN ERROR:", error);
+  return Response.json(
+    { error: "Internal server error" },
+    { status: 500 }
+  );
+}
+```
+
+Look for `LOGIN ERROR:` in the function logs when debugging a 500.
+
+### Demo vs Supabase
+
+The handler picks a backend from environment variables (either name works):
+
+| Variable | Also accepted as | Purpose |
+|----------|------------------|---------|
+| `SUPABASE_URL` | `NEXT_PUBLIC_SUPABASE_URL` | Project URL, e.g. `https://xxxx.supabase.co` |
+| `SUPABASE_ANON_KEY` | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon public key (the function calls Auth with it server-side) |
+
+- **Both unset** — demo mode. Same accounts and password (`demo1234`) as the
+  login-screen chips. Source of truth is `DEMO_PROFILES` / `DEMO_PASSWORD` in
+  `js/mock.js`.
+- **Both set** — live mode. `POST {url}/auth/v1/token?grant_type=password`,
+  then `GET {url}/rest/v1/profiles?id=eq.{user.id}`.
+
+Setting only one of the two is treated as demo (both are required).
+
+### How the browser uses it
+
+`Auth.signIn` in `js/data.js` tries the API first:
+
+1. `POST /api/auth/login` with `{ email, password }`.
+2. If the response is JSON, that result is used (success → store the profile;
+   4xx/5xx → show `error` on the login form).
+3. If the path is missing (static `serve` returns HTML 404) or `fetch` throws
+   a `TypeError` (no network / CORS), it falls back:
+   - demo: match `Mock.db().profiles` + `localStorage` session
+   - live: `supabase.auth.signInWithPassword` from `js/config.js`
+
+So `npm start` keeps working without Vercel, and a Vercel deploy (or
+`vercel dev`) automatically starts using the route.
+
+### Try it
+
+With the function running (`vercel dev`, or any host that mounts `api/`):
+
+```bash
+# happy path
+curl -sS -X POST http://localhost:3000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"md@formulaic.in","password":"demo1234"}'
+
+# 401
+curl -sS -X POST http://localhost:3000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"md@formulaic.in","password":"nope"}'
+
+# 400
+curl -sS -X POST http://localhost:3000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"md@formulaic.in"}'
+
+# 500 — invalid JSON is caught and logged as LOGIN ERROR:
+curl -sS -X POST http://localhost:3000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{not-json'
+```
+
+Automated coverage is in `scripts/test-login.mjs` (run via `npm test`): demo
+sign-in, case-insensitive email, 400/401/405, the 500 catch (invalid JSON and
+a thrown Supabase `fetch`), a mocked live Supabase exchange, and a real
+`POST http://127.0.0.1:<port>/api/auth/login` over Node's HTTP server.
 
 ## Going live with Supabase
 
@@ -132,8 +257,12 @@ demo accounts as the in-browser fallback.
    `seed.sql`.
 4. In `js/config.js`, paste your **Project URL** and **anon public key**, and set
    `DEMO_MODE: false`.
-5. Serve the files as above. The app now reads/writes Supabase and subscribes to
-   realtime location updates.
+5. On the host that serves `api/auth/login.js`, set `SUPABASE_URL` and
+   `SUPABASE_ANON_KEY` (see [Login API](#login-api)) so the function talks to
+   the same project. Without those, the route stays on demo accounts.
+6. Serve the files as above. The app now reads/writes Supabase and subscribes to
+   realtime location updates. The login form uses `POST /api/auth/login` when
+   that path is mounted, and falls back to the Supabase JS client otherwise.
 
 ## Replaying a GPS track from CSV
 
@@ -197,8 +326,8 @@ supabase/
   policies.sql          Row Level Security
   seed.sql              Branches + demo jobs
 sample/                 Example GPS logs for track replay
-scripts/                Smoke tests, replay tests, screenshot capture
-api/auth/login.js       POST /api/auth/login (Vercel / Next-style handler)
+scripts/                Smoke tests, replay tests, login API tests, screenshot capture
+api/auth/login.js       POST /api/auth/login — demo or Supabase, safe 500 catch
 ```
 
 ## Tech
