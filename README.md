@@ -31,6 +31,8 @@ Built with plain **HTML, CSS and JavaScript** (no build step) and backed by
 - **Login API** — `POST /api/auth/login` signs in against demo accounts or
   Supabase; unexpected failures log `LOGIN ERROR:` and return a generic 500.
 - **Role-based access** — navigation and data are scoped to each user's role.
+- **Installable PWA** — Add to Home Screen on iPhone 15 Pro (standalone, splash,
+  Dynamic Island safe-area insets) via `manifest.json` + `sw.js`.
 
 ## Screenshots
 
@@ -82,7 +84,7 @@ Open **Live Field Map** as the MD or a Branch Head to watch engineers move.
 Checks:
 
 ```bash
-npm test              # replay engine + login API unit tests (no browser needed)
+npm test              # replay, login API, and PWA contract tests (no browser needed)
 npm run smoke         # headless sign-in check (requires Chrome or Edge)
 npm run smoke:replay  # headless CSV replay check (requires Chrome or Edge)
 ```
@@ -99,7 +101,10 @@ npm run screenshots
 
 Sign-in is a single JSON endpoint: **`POST /api/auth/login`**. The handler is
 `api/auth/login.js` — a Vercel / Next-style route with named `POST` / `GET`
-exports. It is the server counterpart of `Auth.signIn` in `js/data.js`.
+exports, plus a default Node `(req, res)` handler so the same file works on a
+plain static+`api/` Vercel project. It is the server counterpart of
+`Auth.signIn` in `js/data.js`. A `vercel.json` with `"framework": null` keeps
+Vercel from treating this as a Next.js app.
 
 There is no Express/Fastify app behind it. On Vercel the file is mounted at
 that path automatically. Locally, `npm start` is a static file server, so the
@@ -326,9 +331,30 @@ supabase/
   policies.sql          Row Level Security
   seed.sql              Branches + demo jobs
 sample/                 Example GPS logs for track replay
-scripts/                Smoke tests, replay tests, login API tests, screenshot capture
+scripts/                Smoke tests, replay / login / PWA tests, screenshot capture
 api/auth/login.js       POST /api/auth/login — demo or Supabase, safe 500 catch
+manifest.json           Web app manifest (standalone PWA)
+sw.js                   Service worker — caches the app shell, skips /api/
+icons/                  Home-screen icons + iPhone 15 Pro splash screens
 ```
+
+## Install on iPhone 15 Pro
+
+The portal is a PWA. `manifest.json` uses the same keys as a basic installable
+app (`name`, `short_name`, `start_url`, `display: standalone`) plus icons,
+theme colors, and a maskable 512 icon. There is **no trailing comma** — iOS
+rejects invalid JSON and the app will not install.
+
+1. Open the site in **Safari** (not an in-app browser).
+2. Tap **Share** → **Add to Home Screen** → **Add**.
+3. Launch **Formulaic** from the home screen. It opens full-screen
+   (`display: standalone`) with the iPhone 15 Pro splash
+   (`1179×2556` portrait / `2556×1179` landscape) and a black-translucent
+   status bar that clears the Dynamic Island (`viewport-fit=cover` +
+   `env(safe-area-inset-*)`).
+
+`sw.js` caches the app shell so the last-used screens still load offline.
+`POST /api/auth/login` is never cached.
 
 ## Tech
 

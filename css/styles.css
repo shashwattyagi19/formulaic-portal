@@ -62,7 +62,7 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .auth-wrap {
-  min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr;
+  min-height: 100vh; min-height: 100dvh; display: grid; grid-template-columns: 1.1fr 1fr;
 }
 .auth-hero {
   position: relative; overflow: hidden; color: #fff; padding: 56px;
@@ -135,10 +135,17 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 
 .form-error { color: var(--danger); font-size: 13.5px; margin: 6px 0 0; min-height: 18px; }
 
-.shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; }
+.pwa-hint {
+  margin: 18px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--primary-soft);
+  color: var(--primary-dark); font-size: 13px; line-height: 1.45;
+}
+
+.shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; min-height: 100dvh; }
 .sidebar {
   background: var(--bg); color: #c7d0e3; padding: 18px 14px; display: flex; flex-direction: column;
-  position: sticky; top: 0; height: 100vh;
+  position: sticky; top: 0; height: 100vh; height: 100dvh;
+  padding-top: max(18px, env(safe-area-inset-top));
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
 }
 .sidebar .logo { display: flex; align-items: center; gap: 11px; padding: 8px 8px 18px; }
 .sidebar .logo .mark {
@@ -176,14 +183,16 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.2; }
 
 .main { display: flex; flex-direction: column; min-width: 0; }
 .topbar {
-  display: flex; align-items: center; gap: 16px; padding: 16px 28px; background: var(--surface);
+  display: flex; align-items: center; gap: 16px;
+  padding: max(16px, env(safe-area-inset-top)) max(28px, env(safe-area-inset-right)) 16px 28px;
+  background: var(--surface);
   border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20;
 }
 .topbar .page-title h1 { font-size: 21px; font-weight: 800; letter-spacing: -.01em; }
 .topbar .page-title p { margin: 2px 0 0; color: var(--text-soft); font-size: 13.5px; }
 .topbar .spacer { flex: 1; }
 .menu-toggle { display: none; }
-.content { padding: 26px 28px 48px; max-width: 1320px; width: 100%; }
+.content { padding: 26px 28px max(48px, env(safe-area-inset-bottom)); max-width: 1320px; width: 100%; }
 
 .card {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);

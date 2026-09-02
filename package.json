@@ -6,7 +6,7 @@
   "scripts": {
     "start": "serve . -l 5173",
     "dev": "serve . -l 5173",
-    "test": "node --test scripts/test-replay.mjs scripts/test-login.mjs",
+    "test": "node --test scripts/test-replay.mjs scripts/test-login.mjs scripts/test-pwa.mjs",
     "smoke": "node scripts/smoke.mjs",
     "smoke:replay": "node scripts/replay-smoke.mjs",
     "screenshots": "node scripts/screenshots.mjs"

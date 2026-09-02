@@ -3,6 +3,7 @@ import { Auth, isDemo } from '../data.js';
 import * as Mock from '../mock.js';
 import { CONFIG } from '../config.js';
 import { roleLabel } from '../roles.js';
+import { iosInstallHint } from '../pwa.js';
 
 export function renderLogin(onSuccess) {
   const wrap = h('div', { className: 'auth-wrap' });
@@ -76,6 +77,9 @@ export function renderLogin(onSuccess) {
     });
     cardChildren.push(h('div', { className: 'demo-accounts' }, h('h4', {}, 'Demo accounts'), demoGrid));
   }
+
+  const installHint = iosInstallHint();
+  if (installHint) cardChildren.push(installHint);
 
   wrap.append(hero, h('main', { className: 'auth-panel' }, h('div', { className: 'auth-card' }, ...cardChildren)));
   return wrap;
