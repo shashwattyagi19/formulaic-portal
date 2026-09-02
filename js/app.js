@@ -15,6 +15,7 @@ import { renderExpenses } from './views/expenses.js';
 import { renderEmployees } from './views/employees.js';
 import { renderVisits } from './views/visits.js';
 import { renderProfile } from './views/profile.js';
+import { registerServiceWorker } from './pwa.js';
 
 const app = $('#app');
 let profile = null;
@@ -108,6 +109,8 @@ npx serve -l 5173 .</pre>
   }
   if (profile) await showApp();
   else showLogin();
+
+  registerServiceWorker();
 
   if (isDemo()) {
     console.info('%cFormulaic Portal — demo mode', 'color:#2563eb;font-weight:bold',
