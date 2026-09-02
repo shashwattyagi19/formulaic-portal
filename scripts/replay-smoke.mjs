@@ -91,6 +91,21 @@ try {
   await page.waitForSelector('.replay-panel', { timeout: 5000 });
   check('replay panel renders on the map page', true);
 
+  // A track far from the default Mumbai view, loaded while the map may still be
+  // animating, must still end up centred on the route rather than off-screen.
+  await page.select('.replay-actions select', 'sample/gps.csv');
+  await page.waitForSelector('.replay-controls', { timeout: 5000 });
+  await wait(1500);
+  const markerInView = await page.evaluate(() => {
+    const marker = document.querySelector('.replay-marker')?.closest('.leaflet-marker-icon');
+    const map = document.getElementById('map');
+    if (!marker || !map) return null;
+    const m = marker.getBoundingClientRect();
+    const box = map.getBoundingClientRect();
+    return m.left >= box.left && m.right <= box.right && m.top >= box.top && m.bottom <= box.bottom;
+  });
+  check('map fits to a freshly loaded track', markerInView === true, `markerInView=${markerInView}`);
+
   // --- Load the bundled sample track ---------------------------------------
   await page.select('.replay-actions select', 'sample/gps-mumbai-field-run.csv');
   await page.waitForSelector('.replay-controls', { timeout: 5000 });

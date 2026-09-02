@@ -219,10 +219,28 @@ function drawMap(engineers, positions) {
     maxZoom: 19,
   }).addTo(mapInstance);
   updateMarkers(engineers, positions);
+  applyInitialView(positions);
+  // The container is often still settling when the map is created, and
+  // invalidateSize() pans by the size delta — so re-apply the view after it.
+  setTimeout(() => {
+    if (!mapInstance) return;
+    mapInstance.invalidateSize();
+    applyInitialView(positions);
+  }, 120);
+}
+
+function applyInitialView(positions) {
+  if (!mapInstance) return;
+  // A loaded replay track owns the viewport, so fit it instead of centring on
+  // an engineer.
+  if (replay.track) {
+    drawReplayLayers({ fit: true });
+    return;
+  }
   const sel = positions[selectedId];
-  if (sel) mapInstance.setView([sel.lat, sel.lng], 14);
-  if (replay.track) drawReplayLayers({ fit: true });
-  setTimeout(() => mapInstance?.invalidateSize(), 120);
+  // Unanimated on purpose: an animated setView leaves a ~250ms window during
+  // which Leaflet silently drops a fitBounds asked for by a track load.
+  if (sel) mapInstance.setView([sel.lat, sel.lng], 14, { animate: false });
 }
 
 function updateMarkers(engineers, positions) {
@@ -480,6 +498,21 @@ function clearReplayLayers() {
   replayLayers = null;
 }
 
+/**
+ * Fit the map to `bounds`, waiting out any zoom animation that is still
+ * running. Leaflet's _tryAnimatedZoom returns "handled" the moment it sees
+ * _animatingZoom, before it looks at the animate option, so a fitBounds issued
+ * mid-animation is dropped on the floor rather than deferred or forced.
+ */
+function fitMapToBounds(map, bounds) {
+  if (!map || map !== mapInstance) return;
+  if (map._animatingZoom) {
+    map.once('zoomend', () => fitMapToBounds(map, bounds));
+    return;
+  }
+  map.fitBounds(bounds, { padding: [30, 30], animate: false });
+}
+
 function drawReplayLayers({ fit = false } = {}) {
   if (!mapInstance || !window.L || !replay.track) return;
   clearReplayLayers();
@@ -508,7 +541,9 @@ function drawReplayLayers({ fit = false } = {}) {
   }).addTo(mapInstance).bindTooltip(esc(replay.fileName), { direction: 'top', offset: [0, -14] });
 
   replayLayers = { route, traveled, start, end, marker };
-  if (fit) mapInstance.fitBounds(track.bounds, { padding: [30, 30] });
+  // Via fitMapToBounds, not fitBounds: the fit has to wait out any zoom
+  // animation that is still running (see the helper).
+  if (fit) fitMapToBounds(mapInstance, track.bounds);
   if (replay.player) replay.player.emit();
 }
 
