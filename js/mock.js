@@ -130,6 +130,7 @@ export function resetDemo() {
 }
 
 export const DEMO_PASSWORD = 'demo1234';
+export const DEMO_PROFILES = PROFILES;
 
 export function profileById(id) {
   return db().profiles.find((p) => p.id === id) || null;

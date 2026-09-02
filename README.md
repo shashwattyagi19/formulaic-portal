@@ -93,6 +93,32 @@ npm run screenshots
 
 ---
 
+## Login API
+
+`POST /api/auth/login` is a Vercel/Next-style route handler at
+`api/auth/login.js`. The browser calls it when that path is mounted
+(`vercel dev` or a Vercel deploy); otherwise sign-in stays in the client.
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{ "email": "md@formulaic.in", "password": "demo1234" }
+```
+
+```json
+{ "profile": { "id": "u-md", "role": "managing_director", "…" }, "session": null }
+```
+
+Unexpected failures are logged as `LOGIN ERROR:` and return HTTP 500
+`{ "error": "Internal server error" }` — the cause is never sent to the client.
+Wrong credentials are 401; missing fields are 400.
+
+When `SUPABASE_URL` and `SUPABASE_ANON_KEY` are set on the function, the
+handler exchanges them with Supabase Auth and returns the matching `profiles`
+row plus the session tokens. Without those env vars it authenticates the same
+demo accounts as the in-browser fallback.
+
 ## Going live with Supabase
 
 1. Create a project at <https://supabase.com>.
@@ -172,6 +198,7 @@ supabase/
   seed.sql              Branches + demo jobs
 sample/                 Example GPS logs for track replay
 scripts/                Smoke tests, replay tests, screenshot capture
+api/auth/login.js       POST /api/auth/login (Vercel / Next-style handler)
 ```
 
 ## Tech

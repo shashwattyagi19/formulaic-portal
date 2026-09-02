@@ -15,6 +15,27 @@ async function getClient() {
 
 export const isDemo = () => DEMO;
 
+/** Prefer the serverless login route when it is actually mounted. */
+async function signInViaApi(email, password) {
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const type = res.headers.get('content-type') || '';
+    if (!type.includes('application/json')) return undefined;
+    const payload = await res.json();
+    if (!res.ok) throw new Error(payload.error || 'Sign in failed');
+    currentProfile = payload.profile;
+    if (DEMO && currentProfile?.id) localStorage.setItem(SESSION_KEY, currentProfile.id);
+    return currentProfile;
+  } catch (err) {
+    if (err instanceof TypeError) return undefined;
+    throw err;
+  }
+}
+
 // --- Session (demo mode persists the chosen user) ---------------------------
 const SESSION_KEY = 'formulaic-session';
 let currentProfile = null;
@@ -37,6 +58,9 @@ export const Auth = {
   },
 
   async signIn(email, password) {
+    const viaApi = await signInViaApi(email, password);
+    if (viaApi !== undefined) return viaApi;
+
     if (DEMO) {
       const p = Mock.db().profiles.find((x) => x.email.toLowerCase() === email.trim().toLowerCase());
       if (!p) throw new Error('No account found for that email.');
