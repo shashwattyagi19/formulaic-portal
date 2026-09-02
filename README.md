@@ -15,6 +15,9 @@ Built with plain **HTML, CSS and JavaScript** (no build step) and backed by
 - **Live field map** — track Site Engineers in real time on an interactive map,
   the way Swiggy/Zomato track delivery partners. Markers move live, show speed,
   battery and the job each engineer is on, and draw a recent trail.
+- **CSV track replay** — drop a GPS log (`t,lat,lng`) onto the field map and
+  play the route back: scrub, change speed, loop, read live position/speed, and
+  inspect the parsed rows in a table.
 - **Attendance** — geo-stamped check-in / check-out for every employee, plus a
   manager view of who's present, late, on leave or absent.
 - **Branch expenses & expenditure** — record expenses per branch, track monthly
@@ -74,10 +77,12 @@ Then open <http://localhost:5173> and sign in with a demo account
 
 Open **Live Field Map** as the MD or a Branch Head to watch engineers move.
 
-Optional headless check (requires Chrome or Edge):
+Checks:
 
 ```bash
-npm run smoke
+npm test              # replay engine unit tests (no browser needed)
+npm run smoke         # headless sign-in check (requires Chrome or Edge)
+npm run smoke:replay  # headless CSV replay check (requires Chrome or Edge)
 ```
 
 Regenerate README screenshots:
@@ -104,6 +109,36 @@ npm run screenshots
 5. Serve the files as above. The app now reads/writes Supabase and subscribes to
    realtime location updates.
 
+## Replaying a GPS track from CSV
+
+**Live Field Map → Track replay** plays a recorded GPS log over the map, next to
+the live engineers. Pick one of the bundled samples or **Load CSV…** to open a
+file from your computer.
+
+Expected shape — elapsed seconds plus coordinates:
+
+```csv
+t,lat,lng
+0.0,28.472800,77.508900
+3.0,28.473100,77.509000
+6.0,28.473400,77.509100
+```
+
+The parser is deliberately forgiving:
+
+- Column names may be `t` / `time` / `timestamp`, `lat` / `latitude`, `lng` / `lon` / `longitude`
+- Time may be elapsed seconds, `HH:MM:SS`, or an ISO timestamp (rebased to zero)
+- Comma, semicolon, tab or pipe separated; `#` comments and blank lines ignored
+- Headerless files are read as `t,lat,lng` (or `lat,lng`)
+- Unreadable rows are skipped and reported instead of failing the whole file
+
+While a track is loaded you can play/pause, scrub, run at 0.5×–16×, loop, fit
+the map to the route, open the parsed rows in a **Data** table, and **download**
+the CSV back to your computer. The position, speed and distance covered are
+interpolated between fixes, so playback stays smooth on sparse logs.
+
+Bundled samples live in `sample/`.
+
 ### How live tracking works in production
 
 Site Engineers open **Live Field Map** and tap **Share my location**. The browser
@@ -124,6 +159,7 @@ js/
   app.js                Bootstrap + hash router
   data.js               Data layer (Supabase  ⇄  demo fallback)
   mock.js               In-browser demo backend + live movement simulator
+  replay.js             CSV track parsing, geometry + playback clock
   roles.js              Roles, permissions, status helpers
   layout.js             Sidebar + topbar shell
   ui.js                 Reusable UI (modal, stat cards, charts)
@@ -134,6 +170,8 @@ supabase/
   schema.sql            Tables, enums, triggers, realtime
   policies.sql          Row Level Security
   seed.sql              Branches + demo jobs
+sample/                 Example GPS logs for track replay
+scripts/                Smoke tests, replay tests, screenshot capture
 ```
 
 ## Tech

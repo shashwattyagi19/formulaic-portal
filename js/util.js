@@ -126,6 +126,8 @@ const ICONS = {
   calendar: '<path d="M7 2v2H4a1 1 0 00-1 1v15a1 1 0 001 1h16a1 1 0 001-1V5a1 1 0 00-1-1h-3V2h-2v2H9V2H7zM4 8h16v11H4V8z"/>',
   filter: '<path d="M3 5h18l-7 8v6l-4-2v-4z"/>',
   download: '<path d="M12 16l5-5-1.4-1.4L13 12.2V4h-2v8.2L8.4 9.6 7 11l5 5zm-7 2v2h14v-2H5z"/>',
+  play: '<path d="M8 5v14l11-7z"/>',
+  pause: '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>',
 };
 
 export function icon(name, size = 20) {
