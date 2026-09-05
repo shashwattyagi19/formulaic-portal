@@ -134,6 +134,7 @@ supabase/
   schema.sql            Tables, enums, triggers, realtime
   policies.sql          Row Level Security
   seed.sql              Branches + demo jobs
+web/                    React + TypeScript + Tailwind (shadcn/ui) UI surface
 ```
 
 ## Tech
@@ -142,6 +143,27 @@ supabase/
 - [Leaflet](https://leafletjs.com/) + OpenStreetMap tiles for the map
 - [Supabase](https://supabase.com/) for database, auth and realtime
 - Data exchanged as JSON throughout
+
+---
+
+## React UI surface (`web/`)
+
+The portal itself is build-free vanilla JS. Newer, component-driven UI lives in
+[`web/`](web/README.md) — a self-contained React 19 + TypeScript + Vite app set
+up as a **shadcn/ui** project with **Tailwind CSS v4**, so registry components
+can be dropped in with `npx shadcn@latest add <component>`.
+
+```bash
+npm run ui:install   # npm --prefix web install
+npm run ui:dev       # Vite dev server on http://localhost:5174
+npm run ui:build     # tsc -b && vite build
+npm run ui:lint      # oxlint
+```
+
+Components live in `web/src/components/ui/` (the path declared as `ui` in
+`web/components.json`), which is where the shadcn CLI writes them and what the
+`@/components/ui/...` imports resolve to. See [`web/README.md`](web/README.md)
+for details.
 
 ## License
 
