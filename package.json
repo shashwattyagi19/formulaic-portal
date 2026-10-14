@@ -7,7 +7,11 @@
     "start": "serve . -l 5173",
     "dev": "serve . -l 5173",
     "smoke": "node scripts/smoke.mjs",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "ui:install": "npm --prefix web install",
+    "ui:dev": "npm --prefix web run dev",
+    "ui:build": "npm --prefix web run build",
+    "ui:lint": "npm --prefix web run lint"
   },
   "devDependencies": {
     "puppeteer-core": "^22.15.0",
